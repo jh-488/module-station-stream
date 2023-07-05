@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Station Streaming</title>
+    <meta
+      name="description"
+      content="Allow a station to continuously stream video and/or audio to all connected teachers and students. For more information and configuration, see:<br /><a href='https://github.com/Cross-Lab-Project/edrys_module-station-stream' target='_blank'>https://github.com/Cross-Lab-Project/edrys_module-station-stream</a>"
+    />
+    <meta name="show-in" content="station" />
+    <meta name="fetch" content="true" />
+
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <script src="https://edrys-org.github.io/edrys/module/edrys.js"></script>
+
+    <script
+      defer
+      src="https://edrys-org.github.io/edrys/module/vendor/alpine.min.js"
+    ></script>
+  </head>
+  <body>
+    <video id="video" autoplay style="width: 100" controls></video>
+
+    <script>
+      function getServerID() {
+        return btoa(Edrys.class_id + Edrys.liveRoom.name)
+      }
+
+      function startServer() {
+        var stream = null
+        var peer = new Peer(getServerID())
+
+        var getUserMedia =
+          navigator.getUserMedia ||
+          navigator.webkitGetUserMedia ||
+          navigator.mozGetUserMedia
+
+        getUserMedia(
+          {
+            video:
+              Edrys.module.stationConfig?.video === undefined
+                ? true
+                : Edrys.module.stationConfig?.video,
+            audio:
+              Edrys.module.stationConfig?.audio === undefined
+                ? true
+                : Edrys.module.stationConfig?.audio,
+          },
+          (e) => {
+            stream = e
+
+            const videoElement = document.getElementById('video')
+            videoElement.srcObject = stream
+            videoElement.autoplay = true
+          },
+          function (err) {
+            console.log('Failed to get local stream', err)
+          }
+        )
+
+        peer.on('connection', function (conn) {
+          if (stream) {
+            peer.call(conn.peer, stream)
+            console.warn('streaming', conn.peer)
+          }
+        })
+      }
+
+      function startClient() {
+        var peer = new Peer()
+
+        peer.on('open', function (id) {
+          console.log('Client ID is: ' + id)
+
+          conn = peer.connect(getServerID())
+        })
+
+        peer.on('call', function (call) {
+          call.answer()
+
+          call.on('stream', function (remoteStream) {
+            const videoElement = document.getElementById('video')
+            videoElement.srcObject = remoteStream
+            videoElement.autoplay = true
+          })
+        })
+      }
+
+      Edrys.onReady(() => {
+        console.log('Module is loaded!')
+
+        if (Edrys.role === 'station') {
+          startServer()
+        } else {
+          startClient()
+        }
+      })
+    </script>
+  </body>
+</html>
