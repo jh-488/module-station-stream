@@ -1,10 +1,10 @@
-# edrys_module-station-stream
+# Edrys Station-Stream Module
 
 This module will allow a station to send a video and or audio stream to all connected users via a direct WebRTC connection.
 
 Import the module via:
 
-`https://cross-lab-project.github.io/edrys_module-avr8js/index.html`
+`https://edrys-labs.github.io/module-station-stream/index.html`
 
 ## Settings
 
