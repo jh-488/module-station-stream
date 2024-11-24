@@ -115,31 +115,54 @@
     </script>
 
     <style>
+     body {
+        margin: 0;
+        padding: 0;
+        max-width: unset;
+        height: 100vh; /* Full viewport height */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+      }
+
+      .video-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      video {
+        max-width: 100%;
+        max-height: 100%;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+      }
+
       button {
         position: absolute;
         top: 22px;
-        margin-left: 2px;
+        left: 22px;
         z-index: 999;
-        display: block;
         padding-left: 15px;
         padding-right: 15px;
         background-color: rgba(0, 0, 0, 0.1);
       }
-
-      video {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
     </style>
   </head>
   <body>
-    <video id="video" autoplay style="width: 100%" controls></video>
-    <button
+    <div class="video-container">
+      <video id="video" style="width: 100%" autoplay controls></video>
+      <button
       onclick="Edrys.sendMessage('reload', true)"
       title="force reload of the camera"
-    >
+      >
       ⟳
     </button>
+  </div>
   </body>
 </html>
