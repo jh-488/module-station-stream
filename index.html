@@ -37,8 +37,10 @@
         const videoElement = document.getElementById('video')
 
         videoElement.style.transform = `scaleX(${
-          Edrys.module.stationConfig?.flipX ? -1 : 1
-        }) scaleY(${Edrys.module.stationConfig?.flipY ? -1 : 1})`
+          Edrys.module.stationConfig?.mirrorX ? -1 : 1
+        }) scaleY(${Edrys.module.stationConfig?.mirrorY ? -1 : 1}) rotate(${
+          Edrys.module.stationConfig?.rotate ?? 0
+        }deg)`
 
         var peer = new Peer(getServerID(), config)
 

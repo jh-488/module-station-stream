@@ -14,8 +14,9 @@ You can tweak this behavior with the following settings for station-mode:
 ``` yaml
 video: true
 audio: false
-flipX: false
-flipY: true
+mirrorX: false
+mirrorY: true
+rotate: 90
 ```
 
 or via json:
