@@ -14,6 +14,8 @@ You can tweak this behavior with the following settings for station-mode:
 ``` yaml
 video: true
 audio: false
+flipX: false
+flipY: true
 ```
 
 or via json:
@@ -24,6 +26,8 @@ or via json:
     "audio": false
 }
 ```
+
+The flip parameters will flip the video horizontally or vertically.
 
 ## Problems
 
