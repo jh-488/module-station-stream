@@ -320,224 +320,46 @@
           streamSelectorContainer.classList.add("hidden");
         }
         
-        // Create a network type indicator element
-        const networkTypeIndicator = document.createElement('div');
-        networkTypeIndicator.className = 'network-type-indicator';
-        networkTypeIndicator.textContent = 'Detecting connection...';
-        document.querySelector('.controls').appendChild(networkTypeIndicator);
-        
-        // Check connection type
-        function updateNetworkTypeIndicator() {
-          const connection = navigator.connection || navigator.mozConnection || 
-                            navigator.webkitConnection || null;
-          
-          if (connection) {
-            const type = connection.type || connection.effectiveType || 'unknown';
-            const downlink = connection.downlink ? `${connection.downlink} Mbps` : 'unknown';
-            networkTypeIndicator.textContent = `Network: ${type} (${downlink})`;
-            
-            // For cellular connections, show a warning
-            if (type === 'cellular' || type === '4g' || type === '3g' || type === '2g') {
-              networkTypeIndicator.classList.add('cellular');
-              networkTypeIndicator.textContent += ' ⚠️';
-              networkTypeIndicator.title = 'Mobile data connection detected. Video quality may be reduced.';
-            } else {
-              networkTypeIndicator.classList.remove('cellular');
-              networkTypeIndicator.title = '';
-            }
-          } else {
-            networkTypeIndicator.textContent = 'Network: unknown';
-          }
-        }
-        
-        // Update network type initially and on changes
-        updateNetworkTypeIndicator();
-        if (navigator.connection) {
-          navigator.connection.addEventListener('change', updateNetworkTypeIndicator);
-        }
-        
-        // Add low-bandwidth mode toggle button
-        const lowBandwidthButton = document.createElement('button');
-        lowBandwidthButton.className = 'low-bandwidth-button';
-        lowBandwidthButton.textContent = '📱';
-        lowBandwidthButton.title = 'Toggle low-bandwidth mode for cellular connections';
-        lowBandwidthButton.onclick = function() {
-          const videoTrack = videoElement.srcObject?.getVideoTracks()[0];
-          if (videoTrack) {
-            const isEnabled = !videoTrack.enabled;
-            videoTrack.enabled = isEnabled;
-            lowBandwidthButton.textContent = isEnabled ? '📱' : '🚫';
-            lowBandwidthButton.classList.toggle('disabled', !isEnabled);
-            
-            // Show message
-            const message = document.createElement('div');
-            message.className = 'bandwidth-message';
-            message.textContent = isEnabled ? 'Video enabled' : 'Video disabled (audio only)';
-            document.body.appendChild(message);
-            setTimeout(() => {
-              document.body.removeChild(message);
-            }, 3000);
-          }
-        };
-        document.querySelector('.controls').appendChild(lowBandwidthButton);
-        
-        // Define connection timeout handler
-        let connectionTimeout = setTimeout(() => {
-          loaderElement.querySelector('.loader-text').textContent = 
-            'Connection is taking longer than expected. This may be due to network restrictions. Trying alternative methods...';
-          
-          // If we're on mobile, show cellular optimization tip
-          if (navigator.connection && 
-              (navigator.connection.type === 'cellular' || 
-               ['slow-2g', '2g', '3g'].includes(navigator.connection.effectiveType))) {
-            const cellularTip = document.createElement('div');
-            cellularTip.className = 'cellular-tip';
-            cellularTip.innerHTML = 'Tip: You appear to be on a cellular connection. ' + 
-                                   'You may want to use <button onclick="toggleLowBandwidthMode()">Low Bandwidth Mode</button>';
-            loaderElement.appendChild(cellularTip);
-          }
-        }, 10000); // 10 seconds timeout
-        
         Edrys.onStream((stream, settings, metadata) => {
-          // Clear connection timeout
-          clearTimeout(connectionTimeout);
-          
           console.log("Received stream:", metadata);
+          
+          // Save the current session ID for dropdown selection
           currentDisplayedSessionId = metadata.sessionId;
           
-          // Stop any existing stream
-          if (videoElement.srcObject) {
-            try {
-              videoElement.srcObject.getTracks().forEach(track => track.stop());
-            } catch (e) {
-              console.warn("Error stopping tracks:", e);
-            }
-          }
-          
-          // Apply the stream with enhanced error handling
           try {
-            // Configure video element for better mobile experience
-            videoElement.playsInline = true; // Prevent fullscreen on iOS
-            videoElement.muted = false;
-            videoElement.controls = true;
-            videoElement.autoplay = true;
-            
-            // Apply the stream
             videoElement.srcObject = stream;
             applyVideoTransform(videoElement, settings);
-            
-            // Force play attempt with retry
-            const attemptPlay = () => {
-              videoElement.play().catch(err => {
-                console.warn("Auto-play failed:", err);
-                
-                // Show play button for manual interaction
-                if (err.name === 'NotAllowedError') {
-                  const playButton = document.createElement('button');
-                  playButton.className = 'manual-play-button';
-                  playButton.innerHTML = '▶️ Tap to Play';
-                  playButton.onclick = () => {
-                    videoElement.play().then(() => {
-                      document.body.removeChild(playButton);
-                    }).catch(e => {
-                      console.error("Manual play failed:", e);
-                    });
-                  };
-                  document.body.appendChild(playButton);
-                }
-              });
-            };
-            
-            attemptPlay();
           } catch (e) {
             console.error("Error setting video source:", e);
           }
           
-          // When stream is loaded, hide the loader and notify the client handler
-          videoElement.onloadeddata = function() {
+          videoElement.onloadeddata = function () {
             loaderElement.classList.add("hidden");
             if (metadata.hasLoadedCallback) {
               metadata.hasLoadedCallback();
             }
-            
-            // Update stream selector UI
-            const streamSelector = document.getElementById('stream-selector');
-            if (streamSelector && streamSelector.value !== metadata.sessionId) {
-              streamSelector.value = metadata.sessionId;
-            }
           };
           
-          // Monitor stream stability
-          let lastTimestamp = Date.now();
-          let frameCounter = 0;
-          
-          videoElement.onplay = () => console.log("Video playback started");
-          videoElement.onpause = () => console.log("Video paused");
-          videoElement.onstalled = () => console.log("Video stalled");
-          videoElement.onwaiting = () => console.log("Video waiting for data");
-          
-          // Track frame rate
-          videoElement.requestVideoFrameCallback(function frameCallback(now, metadata) {
-            frameCounter++;
-            
-            // Every second, check frame rate
-            if (Date.now() - lastTimestamp > 1000) {
-              const fps = frameCounter;
-              console.log(`Current video FPS: ${fps}`);
-              
-              if (fps < 5 && videoElement.srcObject) {
-                console.warn("Low frame rate detected, stream may be struggling");
-              }
-              
-              frameCounter = 0;
-              lastTimestamp = Date.now();
-            }
-            
-            // Continue monitoring if we have a stream
-            if (videoElement.srcObject) {
-              videoElement.requestVideoFrameCallback(frameCallback);
-            }
-          });
-          
+          const streamSelector = document.getElementById('stream-selector');
+          if (streamSelector && streamSelector.value !== metadata.sessionId) {
+            streamSelector.value = metadata.sessionId;
+          }
         }).then(subscription => {
           streamSubscription = subscription;
           console.log("Stream subscription created");
           
-          // Initialize the video element for monitoring
+          // Initialize the video element in the streamClient for monitoring
           if (subscription.initializeVideoElement) {
             subscription.initializeVideoElement(videoElement);
           }
           
-          // Set up periodic updates for the stream selector
+          // Set up periodic updates of the stream selector
           setInterval(() => {
             updateStreamSelector();
           }, 5000);
-          
-          // Hide the timeout message if the loader is still visible
-          setTimeout(() => {
-            if (!loaderElement.classList.contains('hidden')) {
-              loaderElement.querySelector('.loader-text').textContent = 'Still connecting... This may take longer on mobile networks.';
-            }
-          }, 15000);
         }).catch(error => {
           console.error("Error setting up stream subscription:", error);
-          loaderElement.querySelector('.loader-text').textContent = 
-            'Error connecting to stream. Please reload or try on WiFi instead of mobile data.';
         });
-      }
-      
-      // Global function for toggling low bandwidth mode
-      function toggleLowBandwidthMode() {
-        const video = document.getElementById('video');
-        const videoTrack = video.srcObject?.getVideoTracks()[0];
-        if (videoTrack) {
-          videoTrack.enabled = !videoTrack.enabled;
-          const button = document.querySelector('.low-bandwidth-button');
-          if (button) {
-            button.textContent = videoTrack.enabled ? '📱' : '🚫';
-            button.classList.toggle('disabled', !videoTrack.enabled);
-          }
-        }
       }
 
       // Handle the reload button (only affect the current module instance)
@@ -594,7 +416,6 @@
         height: auto;
         object-fit: contain;
         transform: scale(1, 1);
-        background-color: #000; /* Black background to see video boundaries */
       }
 
       .controls {
@@ -675,86 +496,6 @@
         padding: 2px 6px;
         border-radius: 4px;
         margin-left: 5px;
-      }
-
-      .network-type-indicator {
-        font-size: 12px;
-        padding: 3px 8px;
-        background: rgba(0, 0, 0, 0.5);
-        color: white;
-        border-radius: 4px;
-        margin-left: 10px;
-      }
-      
-      .network-type-indicator.cellular {
-        background: rgba(255, 150, 0, 0.7);
-      }
-      
-      .low-bandwidth-button {
-        font-size: 16px;
-        padding: 5px 8px;
-        background: rgba(0, 0, 0, 0.5);
-        color: white;
-        border-radius: 50%;
-        margin-left: 5px;
-        cursor: pointer;
-        width: 30px;
-        height: 30px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      
-      .low-bandwidth-button.disabled {
-        background: rgba(255, 0, 0, 0.5);
-      }
-      
-      .manual-play-button {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        padding: 12px 24px;
-        background: rgba(0, 0, 0, 0.7);
-        color: white;
-        border-radius: 8px;
-        font-size: 18px;
-        cursor: pointer;
-        z-index: 100;
-      }
-      
-      .bandwidth-message {
-        position: fixed;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        padding: 8px 16px;
-        background: rgba(0, 0, 0, 0.7);
-        color: white;
-        border-radius: 8px;
-        z-index: 1000;
-      }
-      
-      .cellular-tip {
-        margin-top: 20px;
-        padding: 10px;
-        background: rgba(255, 165, 0, 0.3);
-        border-radius: 8px;
-        max-width: 80%;
-      }
-      
-      @media (max-width: 768px) {
-        .controls {
-          flex-wrap: wrap;
-        }
-        
-        .network-type-indicator {
-          order: -1;
-          margin-bottom: 5px;
-          width: 100%;
-          text-align: center;
-          box-sizing: border-box;
-        }
       }
     </style>
   </head>
